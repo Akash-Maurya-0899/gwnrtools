@@ -255,7 +255,6 @@ def get_inspiral_esigma_modes(
             mean_anomaly,
             1e-12,
             1 / delta_t,
-            False,
         )
         t, x, e, l, phi, phidot, r, rdot = retval[:8]
         eccentricity = e.data.data[-1]
@@ -275,6 +274,7 @@ def get_inspiral_esigma_modes(
         mean_anomaly,
         1e-12,
         1 / delta_t,
+        False,
     )
 
     if f_ref < f_lower:
