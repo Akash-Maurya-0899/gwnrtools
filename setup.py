@@ -135,6 +135,7 @@ if __name__ == "__main__":
             "six>=1.10.0",
             "statsmodels>=0.10.2",
             "utils>=0.9.0",
+            "pyseobnr",
         ],
         scripts=[
             "bin/utils/makepdf",
