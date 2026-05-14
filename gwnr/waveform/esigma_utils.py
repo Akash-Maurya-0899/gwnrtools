@@ -225,34 +225,55 @@ def get_inspiral_esigma_modes(
     """
 
     if return_orbital_params:
-        orbital_var_names = ["x", "e", "l", "phi", "phidot", "r", "rdot"]
+        all_orbital_var_names = ["x", "e", "l", "phi", "phidot", "r", "rdot"]
         if return_orbital_params != True:
             for name in return_orbital_params:
-                if name not in orbital_var_names:
+                if name not in all_orbital_var_names:
                     raise Exception(
-                        f"{name} is not a valid orbital variable name. Available orbital variable names are: {orbital_var_names}."
+                        f"{name} is not a valid orbital variable name. Available orbital variable names are: {all_orbital_var_names}."
                     )
 
+    # Calculating the orbital variables, depending on user input.
+    # Use of `f_ref` is activated
+    f_start = f_lower
     if f_ref is None:
+        f_start = f_lower
         f_ref = f_lower
+        itime = time.perf_counter()
     elif f_ref > f_lower:
-        raise NotImplementedError("We do not support f_ref > f_lower yet.")
+        # Calculating new orbital variables
+        itime = time.perf_counter()
+        retval = ls.SimInspiralESIGMADynamicsBackwardInTime(
+            mass1,
+            mass2,
+            spin1z,
+            spin2z,
+            eccentricity,
+            f_ref,
+            f_lower,
+            mean_anomaly,
+            1e-12,
+            1 / delta_t,
+            False,
+        )
+        t, x, e, l, phi, phidot, r, rdot = retval[:8]
+        eccentricity = e.data.data[-1]
+        mean_anomaly = l.data.data[-1]
+        f_start = f_lower
+    elif f_ref < f_lower:
+        itime = time.perf_counter()
+        f_start = f_ref
 
-    distance *= 1.0e6 * lal.PC_SI  # Mpc to SI conversion
-
-    # Calculating the orbital variables
-    itime = time.perf_counter()
     retval = ls.SimInspiralENIGMADynamics(
         mass1,
         mass2,
         spin1z,
         spin2z,
         eccentricity,
-        f_ref,
+        f_start,
         mean_anomaly,
         1e-12,
         1 / delta_t,
-        False,
     )
 
     if f_ref < f_lower:
@@ -270,7 +291,7 @@ def get_inspiral_esigma_modes(
     ) * lal.MTSUN_SI  # Time from geometrized units to seconds
 
     if verbose:
-        print(f"Orbital evolution took: {time.perf_counter() - itime} seconds")
+        print(f"Inspiral orbital evolution took: {time.perf_counter() - itime} seconds")
 
     # Include conjugate modes in the mode list
     if include_conjugate_modes:
@@ -280,6 +301,7 @@ def get_inspiral_esigma_modes(
 
     itime = time.perf_counter()
     modes = {}
+    distance *= 1.0e6 * lal.PC_SI  # Mpc to SI conversion
     for el, em in modes_to_use:
         modes[(el, em)] = ls.SimInspiralENIGMAModeFromDynamics(
             el,
@@ -302,7 +324,7 @@ def get_inspiral_esigma_modes(
             k: pt.TimeSeries(
                 modes[k].data.data,
                 delta_t=delta_t,
-                epoch=-delta_t * (len(modes[k].data.data)-1),
+                epoch=-delta_t * (len(modes[k].data.data) - 1),
             )
             for k in modes
         }
@@ -310,12 +332,12 @@ def get_inspiral_esigma_modes(
         modes = {k: np.asarray(modes[k].data.data) for k in modes}
 
     if verbose:
-        print(f"Modes generation took: {time.perf_counter() - itime} seconds")
+        print(f"Inspiral modes generation took: {time.perf_counter() - itime} seconds")
 
     if return_orbital_params:
         orbital_var_dict = {}
         if return_orbital_params == True:
-            return_orbital_params = orbital_var_names
+            return_orbital_params = all_orbital_var_names
 
         if return_pycbc_timeseries:
             for name in return_orbital_params:
@@ -419,8 +441,8 @@ def get_inspiral_esigma_waveform(
     )
 
     if return_pycbc_timeseries:
-        hp = pt.TimeSeries(hp, delta_t=delta_t, epoch=-delta_t * (len(hp)-1))
-        hc = pt.TimeSeries(hc, delta_t=delta_t, epoch=-delta_t * (len(hc)-1))
+        hp = pt.TimeSeries(hp, delta_t=delta_t, epoch=-delta_t * (len(hp) - 1))
+        hc = pt.TimeSeries(hc, delta_t=delta_t, epoch=-delta_t * (len(hc) - 1))
 
     if return_orbital_params:
         if return_pycbc_timeseries:
