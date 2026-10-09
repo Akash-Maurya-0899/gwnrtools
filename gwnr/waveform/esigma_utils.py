@@ -189,6 +189,7 @@ def get_inspiral_esigma_modes(
     include_conjugate_modes=True,
     return_orbital_params=False,
     return_pycbc_timeseries=True,
+    back_evolve_num_orbits=None,
     verbose=False,
 ):
     """
@@ -214,6 +215,9 @@ def get_inspiral_esigma_modes(
                                    ['x', 'e', 'l', 'phi', 'phidot', 'r', 'rdot']
         return_pycbc_timeseries -- If True, returns data in the form of PyCBC timeseries.
                                    True by default.
+        back_evolve_num_orbits  -- If specified, f_lower is overwritten, and is instead calculated
+                                   by back evolving the waveform by this many *radial orbits*
+                                   (NOT (2,2)-mode cycles, but orbital cycles) from f_ref.
         verbose                 -- Verbosity flag
 
     Returns:
@@ -233,6 +237,61 @@ def get_inspiral_esigma_modes(
                     raise Exception(
                         f"{name} is not a valid orbital variable name. Available orbital variable names are: {all_orbital_var_names}."
                     )
+
+    if back_evolve_num_orbits is not None:
+        if back_evolve_num_orbits < 0:
+            raise Exception(
+                f"back_evolve_num_orbits should be a positive number. You provided {back_evolve_num_orbits}."
+            )
+        back_evolve_num_orbits = float(back_evolve_num_orbits)
+        if f_ref is None:
+            f_ref = f_lower
+        sampling_rate_sparse = 64.0 * f_ref
+        f_lower = 0.95 * f_ref
+        f_floor = 0.1  # Minimum frequency (Hz) to which we can back evolve the waveform. This is to avoid an infinite loop
+        # in case the user requests a back evolution that is too large.
+        n_orbits_prev = -np.inf
+        while f_lower >= f_floor:
+            try:
+                retval = ls.SimInspiralESIGMADynamicsBackwardInTime(
+                    mass1,
+                    mass2,
+                    spin1z,
+                    spin2z,
+                    eccentricity,
+                    f_ref,
+                    f_lower,
+                    mean_anomaly,
+                    1e-12,
+                    sampling_rate_sparse,
+                )
+            except Exception as e:
+                raise Exception(
+                    f"""Failed to back evolve the orbital parameters from f_ref={f_ref}Hz to f_lower={f_lower}Hz. 
+Requested back evolution amount was {back_evolve_num_orbits} radial orbits. Error: {e}."""
+                )
+
+            t, x, e, l, phi, phidot, r, rdot = retval[:8]
+            f = (x.data.data**1.5) / ((mass1 + mass2) * lal.MTSUN_SI * np.pi)
+            num_radial_orbits = (mean_anomaly - l.data.data) / (
+                2 * np.pi
+            )  # number of radial orbits
+            if num_radial_orbits[-1] >= back_evolve_num_orbits:
+                f_lower = float(np.interp(back_evolve_num_orbits, num_radial_orbits, f))
+                break
+            elif num_radial_orbits[-1] < n_orbits_prev:
+                raise Exception(
+                    "Back evolution causing number of orbits to decrease, instead of increasing. Aborting back evolution root find..."
+                )
+            n_orbits_prev = num_radial_orbits[-1]
+            f_lower *= 0.9
+        #  a while...else loop executes an associated else block only if
+        # the while loop terminates naturally (when its condition becomes False)
+        else:
+            raise Exception(
+                f"""Back evolution requested is too large. The waveform can only be back-evolved to 
+a minimum frequency of {f_floor:.3f}Hz. Requested back evolution amount was {back_evolve_num_orbits:.2f} radial orbits."""
+            )
 
     # Calculating the orbital variables, depending on user input.
     # Use of `f_ref` is activated
@@ -372,6 +431,7 @@ def get_inspiral_esigma_waveform(
     modes_to_use=[(2, 2), (3, 3), (4, 4)],
     return_orbital_params=False,
     return_pycbc_timeseries=True,
+    back_evolve_num_orbits=None,
     verbose=False,
     **kwargs,
 ):
@@ -400,6 +460,9 @@ def get_inspiral_esigma_waveform(
                                    ['x', 'e', 'l', 'phi', 'phidot', 'r', 'rdot']
         return_pycbc_timeseries -- If True, returns data in the form of PyCBC timeseries.
                                    True by default
+        back_evolve_num_orbits  -- If specified, f_lower is overwritten, and is instead calculated
+                                   by back evolving the waveform by this many *radial orbits*
+                                   (NOT (2,2)-mode cycles, but orbital cycles) from f_ref.
         verbose                 -- Verbosity level. Available values are: 0, 1, 2
 
     Returns:
@@ -426,6 +489,7 @@ def get_inspiral_esigma_waveform(
         include_conjugate_modes=True,  # Always include conjugate modes while generating polarizations
         return_orbital_params=return_orbital_params,
         verbose=verbose,
+        back_evolve_num_orbits=back_evolve_num_orbits,
         return_pycbc_timeseries=False,
     )
 
@@ -685,6 +749,7 @@ def get_imr_esigma_modes(
     return_hybridization_info=False,
     return_orbital_params=False,
     failsafe=True,
+    back_evolve_num_orbits=None,
     verbose=False,
 ):
     """
@@ -762,6 +827,9 @@ def get_imr_esigma_modes(
         failsafe                  -- If True, we make reasonable choices for the
                                      user, if the inputs to this method lead
                                      into exceptions.
+        back_evolve_num_orbits    -- If specified, f_lower is overwritten, and is instead calculated
+                                     by back evolving the waveform by this many *radial orbits*
+                                     (NOT (2,2)-mode cycles, but orbital cycles) from f_ref.
         verbose                   -- Verbosity level. Available values are: 0, 1, 2
 
     Returns:
@@ -864,6 +932,7 @@ parameters available with us: {available_inspiral_orbital_params}.
         modes_to_use=modes_to_use,
         include_conjugate_modes=include_conjugate_modes,
         return_orbital_params=list(return_orbital_params),
+        back_evolve_num_orbits=back_evolve_num_orbits,
         return_pycbc_timeseries=False,
         verbose=verbose,
     )
@@ -1095,6 +1164,7 @@ def get_imr_esigma_waveform(
     return_hybridization_info=False,
     return_orbital_params=False,
     failsafe=True,
+    back_evolve_num_orbits=None,
     verbose=False,
     **kwargs,
 ):
@@ -1164,6 +1234,9 @@ def get_imr_esigma_waveform(
         failsafe                  -- If True, we make reasonable choices for the
                                      user, if the inputs to this method lead
                                      into exceptions.
+        back_evolve_num_orbits    -- If specified, f_lower is overwritten, and is instead calculated
+                                     by back evolving the waveform by this many *radial orbits*
+                                     (NOT (2,2)-mode cycles, but orbital cycles) from f_ref.
         verbose                   -- Verbosity level. Available values are: 0, 1, 2
 
     Returns:
@@ -1200,6 +1273,7 @@ def get_imr_esigma_waveform(
         return_hybridization_info=return_hybridization_info,
         return_orbital_params=return_orbital_params,
         failsafe=failsafe,
+        back_evolve_num_orbits=back_evolve_num_orbits,
         verbose=verbose,
     )
     if return_hybridization_info and return_orbital_params:
