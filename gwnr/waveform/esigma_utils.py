@@ -318,7 +318,7 @@ a minimum frequency of {f_floor:.3f}Hz. Requested back evolution amount was {bac
         t, x, e, l, phi, phidot, r, rdot = retval[:8]
         eccentricity = e.data.data[-1]
         mean_anomaly = l.data.data[-1]
-        f_start = f_lower
+        f_start = (x.data.data[-1] ** 1.5) / ((mass1 + mass2) * lal.MTSUN_SI * np.pi)
     elif f_ref < f_lower:
         itime = time.perf_counter()
         f_start = f_ref
