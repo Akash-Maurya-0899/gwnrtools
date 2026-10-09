@@ -201,7 +201,7 @@ def get_inspiral_esigma_modes(
         f_lower                 -- Starting frequency of the waveform (in Hz)
         f_ref                   -- Reference frequency at which to define the waveform
                                    parameters.
-                                   We require f_ref <= f_lower. f_ref = f_lower by default.
+                                   f_ref = f_lower by default.
         delta_t                 -- Waveform's time grid-spacing (in s)
         spin1z, spin2z          -- z-components of component dimensionless spins (lies in [0,1))
         eccentricity            -- Initial eccentricity
@@ -296,10 +296,10 @@ a minimum frequency of {f_floor:.3f}Hz. Requested back evolution amount was {bac
     # Calculating the orbital variables, depending on user input.
     # Use of `f_ref` is activated
     f_start = f_lower
+    itime = time.perf_counter()
     if f_ref is None:
         f_start = f_lower
         f_ref = f_lower
-        itime = time.perf_counter()
     elif f_ref > f_lower:
         # Calculating new orbital variables
         itime = time.perf_counter()
@@ -444,7 +444,7 @@ def get_inspiral_esigma_waveform(
         f_lower                 -- Starting frequency of the waveform (in Hz)
         f_ref                   -- Reference frequency at which to define the waveform
                                    parameters.
-                                   We require f_ref <= f_lower. f_ref = f_lower by default.
+                                   f_ref = f_lower by default.
         delta_t                 -- Waveform's time grid-spacing (in s)
         spin1z, spin2z          -- z-components of component dimensionless spins (lies in [0,1))
         eccentricity            -- Initial eccentricity
@@ -762,7 +762,6 @@ def get_imr_esigma_modes(
         f_lower                   -- Starting frequency of the waveform (in Hz)
         f_ref                     -- Reference frequency at which to define the
                                      waveform parameters.
-                                     We require f_ref <= f_lower.
                                      f_ref = f_lower by default.
         delta_t                   -- Waveform's time grid-spacing (in s)
         spin1z, spin2z            -- z-components of component dimensionless
@@ -1176,8 +1175,7 @@ def get_imr_esigma_waveform(
         mass1, mass2              -- Binary's component masses (in solar masses)
         f_lower                   -- Starting frequency of the waveform (in Hz)
         f_ref                     -- Reference frequency at which to define the
-                                     waveform parameters.  We require that
-                                     `f_ref <= f_lower`.
+                                     waveform parameters.
                                      `f_ref = f_lower` by default.
         delta_t                   -- Waveform's time grid-spacing (in s)
         spin1z, spin2z            -- z-components of component dimensionless
